@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Impede indexadores de armazenar ou seguir os links desta página -->
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <meta name="googlebot" content="noindex, nofollow, noarchive" />
+  <title>ShortSeries Player</title>
+  <style>
+    :root {
+      --bg: #111;
+      --surface: #222;
+      --accent: #444;
+      --accent-hover: #666;
+      --txt: #f5f5f5;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+    }
+    header,
+    footer {
+      background: var(--surface);
+      padding: 0.75rem 1rem;
+      text-align: center;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    select,
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: var(--txt);
+      border: none;
+      border-radius: 4px;
+      padding: 0.5rem 0.75rem;
+      font-size: 1rem;
+    }
+    button:hover:not(:disabled),
+    select:hover {
+      background: var(--accent-hover);
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    main {
+      flex: 1 1 auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      justify-content: center;
+    }
+    video {
+      width: 100%;
+      max-width: 960px;
+      background: #000;
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+    #status {
+      margin: 0.5rem 0 0;
+      font-size: 0.875rem;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <label>
+    Série:
+    <select id="seriesSelect"></select>
+  </label>
+  <span id="chapterLabel"></span>
+</header>
+
+<main>
+  <video id="player" controls playsinline></video>
+  <div class="controls">
+    <button id="prevBtn">⬅ Anterior</button>
+    <button id="nextBtn">Próximo ➡</button>
+  </div>
+  <p id="status"></p>
+</main>
+
+<footer>
+  Player criado para distrair os amigos do tédio absoluto
+</footer>
+
+<script>
+  // ----- Catálogo -----
+  const SERIES_CATALOG = [
+    { slug: "RENASCI8ANOS", title: "RENASCI 8 Anos", max: 120 },
+    { slug: "MAECEOPAIINCRIVEL", title: "Mãe, Ceo & Pai Incrível", max: 120 },
+  ];
+  const BASE_URL = "https://techmaisbr.com/shortseries/";
+
+  // ----- Referências -----
+  const qs = new URLSearchParams(location.search);
+  const selectEl = document.getElementById("seriesSelect");
+  const chapterLabel = document.getElementById("chapterLabel");
+  const video = document.getElementById("player");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const statusEl = document.getElementById("status");
+
+  // ----- Estado -----
+  let currentSeries = qs.get("s") || SERIES_CATALOG[0].slug;
+  let chapter = parseInt(qs.get("c"), 10) || 1;
+
+  // ----- Helpers -----
+  const buildUrl = (slug, chap) => `${BASE_URL}${slug}/${slug}${chap}.mp4`;
+
+  const syncUrl = () => {
+    const url = new URL(location.href);
+    url.searchParams.set("s", currentSeries);
+    url.searchParams.set("c", chapter);
+    history.replaceState(null, "", url);
+  };
+
+  function loadVideo(slug, chap) {
+    const seriesObj = SERIES_CATALOG.find((s) => s.slug === slug);
+    if (!seriesObj) return;
+
+    currentSeries = slug;
+    chapter = Math.max(1, Math.min(chap, seriesObj.max));
+    syncUrl();
+
+    video.src = buildUrl(slug, chapter);
+    video.load();
+    video.play().catch(() => {});
+
+    chapterLabel.textContent = `${seriesObj.title} – Capítulo ${chapter}`;
+    prevBtn.disabled = chapter <= 1;
+    nextBtn.disabled = chapter >= seriesObj.max;
+    statusEl.textContent = "";
+  }
+
+  const changeChapter = (delta) => loadVideo(currentSeries, chapter + delta);
+
+  // ----- Inicialização UI -----
+  SERIES_CATALOG.forEach(({ slug, title }) => {
+    const opt = document.createElement("option");
+    opt.value = slug;
+    opt.textContent = title;
+    selectEl.appendChild(opt);
+  });
+  selectEl.value = currentSeries;
+  selectEl.addEventListener("change", () => loadVideo(selectEl.value, 1));
+  prevBtn.addEventListener("click", () => changeChapter(-1));
+  nextBtn.addEventListener("click", () => changeChapter(1));
+
+  video.addEventListener("ended", () => changeChapter(1));
+  video.addEventListener("error", () => {
+    statusEl.textContent = `Capítulo ${chapter} indisponível. Pulando...`;
+    changeChapter(1);
+  });
+
+  // Start
+  loadVideo(currentSeries, chapter);
+</script>
+</body>
+</html>
